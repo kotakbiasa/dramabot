@@ -1,0 +1,23 @@
+# Copyright (c) 2025 DramaBot
+# Pause playback
+
+
+from pyrogram import filters
+from pyrogram.types import Message
+
+from drama import app, drama_call, db
+
+
+@app.on_message(filters.command("pause") & filters.group)
+async def pause_command(_, message: Message):
+    """Pause current playback"""
+    chat_id = message.chat.id
+    
+    if not await db.get_call(chat_id):
+        return await message.reply_text("❌ Tidak ada yang sedang diputar!")
+    
+    try:
+        await drama_call.pause(chat_id)
+        await message.reply_text("⏸ **Paused**")
+    except Exception as e:
+        await message.reply_text(f"❌ Error: {str(e)}")

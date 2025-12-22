@@ -1,0 +1,56 @@
+{
+    "name": "DramaBot",
+    "description": "Telegram bot untuk streaming drama ke voice chat grup. Powered by DramaBox API.",
+    "logo": "https://te.legra.ph/file/b8a0c1a00db3e57522b53.jpg",
+    "keywords": [
+        "python3",
+        "telegram",
+        "bot",
+        "drama",
+        "streaming",
+        "voice-chat"
+    ],
+    "stack": "container",
+    "env": {
+        "API_ID": {
+            "description": "Get this value from https://my.telegram.org",
+            "value": "",
+            "required": true
+        },
+        "API_HASH": {
+            "description": "Get this value from https://my.telegram.org",
+            "value": "",
+            "required": true
+        },
+        "BOT_TOKEN": {
+            "description": "Bot token from @BotFather",
+            "value": "",
+            "required": true
+        },
+        "MONGO_URL": {
+            "description": "MongoDB connection URL from https://cloud.mongodb.com",
+            "value": "",
+            "required": true
+        },
+        "DB_NAME": {
+            "description": "Database name (untuk membedakan bot di satu MongoDB)",
+            "value": "DramaBot",
+            "required": false
+        },
+        "LOGGER_ID": {
+            "description": "Your log group/channel ID, add bot and promote as admin",
+            "value": "",
+            "required": true
+        },
+        "OWNER_ID": {
+            "description": "Your Telegram user ID",
+            "value": "",
+            "required": true
+        },
+        "SESSION": {
+            "description": "Pyrogram v2 session string from @StringFatherBot",
+            "value": "",
+            "required": true
+        }
+    }
+}

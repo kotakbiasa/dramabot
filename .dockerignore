@@ -1,12 +1,12 @@
 .env
 .cache
-*.txt
-.idea
+log.txt
 .DS_Store
 venv/
 cache/
 downloads/
 __pycache__/
-anony/cookies/*.txt
+drama/cookies/*.txt
 *.session
 *.session-journal
+
