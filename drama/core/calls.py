@@ -4,6 +4,7 @@
 
 from ntgcalls import (ConnectionNotFound, TelegramServerError,
                       RTMPStreamingUnsupported)
+from pyrogram import enums
 from pyrogram.errors import MessageIdInvalid
 from pyrogram.types import InputMediaPhoto, Message
 from pytgcalls import PyTgCalls, exceptions, types
@@ -87,19 +88,24 @@ class TgCall(PyTgCalls):
             if not seek_time:
                 media.time = 1
                 await db.add_call(chat_id)
-                text = f"🎬 **Sekarang Diputar**\n\n"
-                text += f"📺 **Judul:** {media.title}\n"
-                if getattr(media, "book_id", None):
-                    text += f"🆔 **Book ID:** `{media.book_id}`\n"
+                text = f"🎬 <b>Sekarang Diputar</b>\n\n"
+                text += f"📺 <b>Judul:</b> {media.title}\n"
+                
+                # Extract and show episode number if available
+                import re
+                episode_match = re.search(r'(?:EP|Episode)\s*(\d+)', media.title, re.IGNORECASE)
+                if episode_match:
+                    text += f"📌 <b>Episode:</b> {episode_match.group(1)}\n"
+                
                 if getattr(media, "tags", None):
-                    text += f"🏷 **Tags:** {media.tags}\n"
-                text += f"👤 **Diminta oleh:** {media.user}"
+                    text += f"🏷 <b>Tags:</b> {media.tags}"
                 keyboard = buttons.controls(chat_id)
                 try:
                     await message.edit_media(
                         media=InputMediaPhoto(
                             media=_thumb,
                             caption=text,
+                            parse_mode=enums.ParseMode.HTML,
                         ),
                         reply_markup=keyboard,
                     )
@@ -108,6 +114,7 @@ class TgCall(PyTgCalls):
                         chat_id=chat_id,
                         photo=_thumb,
                         caption=text,
+                        parse_mode=enums.ParseMode.HTML,
                         reply_markup=keyboard,
                     )).id
         except FileNotFoundError:

@@ -101,8 +101,9 @@ async def play_direct(message: Message):
     msg = await message.reply_text(f"⏳ Mengambil episode {episode_num}...")
     
     try:
-        # Get episode from API
+        # Get episode and drama details from API
         episode = await api.get_episode(book_id, episode_num)
+        drama = await api.get_drama_detail(book_id)
         
         if not episode or not episode.video_url:
             return await msg.edit_text(
@@ -110,18 +111,21 @@ async def play_direct(message: Message):
                 f"Cek jumlah episode dengan `/search` terlebih dahulu."
             )
         
+        # Create full title: "Drama Name - Episode Title"
+        full_title = f"{drama.title} - {episode.title}" if drama else episode.title
+        
         # Create Track object
         from drama.helpers import Track
         
         track = Track(
             id=f"{book_id}_{episode_num}",
             channel_name="Drama Stream",
-            title=episode.title,
+            title=full_title,
             duration=f"{episode.duration//60}:{episode.duration%60:02d}" if episode.duration else "Unknown",
             duration_sec=episode.duration or 0,
             url=episode.video_url,
             file_path=episode.video_url,  # Direct URL for streaming
-            thumbnail=episode.thumbnail or config.DEFAULT_THUMB,
+            thumbnail=drama.cover_url if drama and drama.cover_url else (episode.thumbnail or config.DEFAULT_THUMB),
             user=message.from_user.mention,
             book_id=book_id,
             tags="Drama, Romance",

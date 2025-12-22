@@ -2,7 +2,7 @@
 # Callback handlers untuk inline buttons
 
 
-from pyrogram import filters
+from pyrogram import filters, enums
 from pyrogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 
 from drama import app, api, drama_call, db, queue, config
@@ -25,20 +25,22 @@ async def drama_detail_callback(_, query: CallbackQuery):
         if not episodes:
             return await msg.edit_text("❌ Gagal mengambil episode drama ini.")
         
-        # Build caption text
-        caption = f"🎬 **{drama.title if drama else 'Drama Detail'}**\n\n"
+        # Build caption text using HTML
+        caption = f"🎬 <b>{drama.title if drama else 'Drama Detail'}</b>\n\n"
         
         if drama and drama.description:
-            # Truncate description and add blockquote to each line
-            desc = drama.description[:200] + "..." if len(drama.description) > 200 else drama.description
-            caption += "\n".join([f"> {line}" for line in desc.split("\n")]) + "\n\n"
+            # Use expandable blockquote for description
+            desc = drama.description[:800] + "..." if len(drama.description) > 800 else drama.description
+            # Escape HTML characters
+            desc = desc.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+            caption += f"<blockquote expandable>{desc}</blockquote>\n\n"
         
-        caption += f"> 🆔 **Book ID:** `{book_id}`\n"
-        caption += f"> 🏷 **Tags:** Drama, Romance\n"
-        caption += f"> 📺 **Total Episode:** {len(episodes)}\n"
+        caption += f"🆔 <b>Book ID:</b> <code>{book_id}</code>\n"
+        caption += f"🏷 <b>Tags:</b> Drama, Romance\n"
+        caption += f"📺 <b>Total Episode:</b> {len(episodes)}\n"
         
         if drama and drama.views:
-            caption += f"> 👁 **Views:** {drama.views}\n"
+            caption += f"👁 <b>Views:</b> {drama.views}\n"
         
         caption += f"\n💡 Pilih episode untuk streaming:"
         
@@ -72,11 +74,13 @@ async def drama_detail_callback(_, query: CallbackQuery):
             await query.message.reply_photo(
                 photo=drama.cover_url,
                 caption=caption,
+                parse_mode=enums.ParseMode.HTML,
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
         else:
             await query.message.reply_text(
                 caption,
+                parse_mode=enums.ParseMode.HTML,
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
         
@@ -106,16 +110,19 @@ async def episodes_page_callback(_, query: CallbackQuery):
         if not page_episodes:
             return await query.answer("❌ Halaman tidak ada", show_alert=True)
         
-        # Build caption
-        caption = f"🎬 **{drama.title if drama else 'Drama Detail'}**\n\n"
+        # Build caption using HTML
+        caption = f"🎬 <b>{drama.title if drama else 'Drama Detail'}</b>\n\n"
         
         if drama and drama.description:
-             desc = drama.description[:200] + "..." if len(drama.description) > 200 else drama.description
-             caption += "\n".join([f"> {line}" for line in desc.split("\n")]) + "\n\n"
+             # Use expandable blockquote for description
+             desc = drama.description[:800] + "..." if len(drama.description) > 800 else drama.description
+             # Escape HTML characters
+             desc = desc.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+             caption += f"<blockquote expandable>{desc}</blockquote>\n\n"
              
-        caption += f"> 🆔 **Book ID:** `{book_id}`\n"
-        caption += f"> 🏷 **Tags:** Drama, Romance\n"
-        caption += f"> 📺 Episode {start_idx + 1}-{min(end_idx, len(episodes))} dari {len(episodes)}\n"
+        caption += f"🆔 <b>Book ID:</b> <code>{book_id}</code>\n"
+        caption += f"🏷 <b>Tags:</b> Drama, Romance\n"
+        caption += f"📺 Episode {start_idx + 1}-{min(end_idx, len(episodes))} dari {len(episodes)}\n"
         caption += f"\n💡 Pilih episode untuk streaming:"
         
         # Create episode buttons in grid (4 per row for "Eps X")
@@ -142,6 +149,7 @@ async def episodes_page_callback(_, query: CallbackQuery):
         
         await query.message.edit_caption(
             caption=caption,
+            parse_mode=enums.ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         
@@ -168,11 +176,15 @@ async def play_episode_callback(_, query: CallbackQuery):
     msg = await query.message.edit_text(f"⏳ Mengambil episode {episode_num}...")
             
     try:
-        # Get episode
+        # Get episode and drama details
         episode = await api.get_episode(book_id, episode_num)
+        drama = await api.get_drama_detail(book_id)
         
         if not episode or not episode.video_url:
             return await msg.edit_text("❌ Episode tidak ditemukan atau link tidak tersedia.")
+        
+        # Create full title: "Drama Name - Episode Title"
+        full_title = f"{drama.title} - {episode.title}" if drama else episode.title
         
         # Create Track object
         from drama.helpers import Track
@@ -180,12 +192,12 @@ async def play_episode_callback(_, query: CallbackQuery):
         track = Track(
             id=f"{book_id}_{episode_num}",
             channel_name="Drama Stream",
-            title=episode.title,
+            title=full_title,
             duration=f"{episode.duration//60}:{episode.duration%60:02d}" if episode.duration else "Unknown",
             duration_sec=episode.duration or 0,
             url=episode.video_url,
             file_path=episode.video_url,
-            thumbnail=episode.thumbnail or config.DEFAULT_THUMB,
+            thumbnail=drama.cover_url if drama and drama.cover_url else (episode.thumbnail or config.DEFAULT_THUMB),
             user=query.from_user.mention,
             book_id=book_id,
             tags="Drama, Romance", # Default tags
