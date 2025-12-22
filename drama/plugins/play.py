@@ -3,7 +3,7 @@
 
 
 from pyrogram import filters, enums
-from pyrogram.types import Message
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
 from drama import app, api, queue, config, drama_call, db
 from drama.helpers import Track
@@ -42,7 +42,6 @@ async def play_command(_, message: Message):
 
 async def play_search(message: Message):
     """Handle text search for play"""
-    from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
     
     query = " ".join(message.command[1:])
     msg = await message.reply_text(f"🔍 Mencari drama untuk diputar: **{query}**...")
@@ -56,28 +55,26 @@ async def play_search(message: Message):
                 f"Coba judul lain atau gunakan `/trending`."
             )
             
-        # If only 1 result, auto-select it? 
-        # Better to just show list to be safe, or if exact match.
-        # Let's show list like search.py
-        
+        # Improved UI for search results
         text = f"🔍 **Hasil pencarian:** `{query}`\n\n"
         keyboard = []
         
         for i, drama in enumerate(dramas, 1):
             text += f"**{i}. {drama.title}**\n"
-            text += f"📺 {drama.episode_count} episode"
-            if drama.views:
-                text += f" • 👁 {drama.views}"
-            text += "\n\n"
+            text += f"   📺 {drama.episode_count} Eps | 👁 {drama.views or 'N/A'}\n"
         
-        text += "💡 Klik nomor drama untuk mulai streaming!"
+        text += "\n💡 Klik tombol di bawah untuk memilih drama!"
         
         row = []
         for i, drama in enumerate(dramas, 1):
             row.append(InlineKeyboardButton(str(i), callback_data=f"drama_{drama.book_id}"))
-            if i % 5 == 0 or i == len(dramas):
+            if i % 5 == 0:
                 keyboard.append(row)
                 row = []
+        if row:
+            keyboard.append(row)
+
+        keyboard.append([InlineKeyboardButton("🗑 Tutup", callback_data="close")])
                 
         await msg.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
         
@@ -130,7 +127,8 @@ async def play_direct(message: Message):
             book_id=book_id,
             tags="Drama, Romance",
             video=True,
-            message_id=msg.id
+            message_id=msg.id,
+            urls=episode.urls # Pass full list of URLs
         )
         
         # Check if bot is in voice chat

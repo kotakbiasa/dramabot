@@ -1,7 +1,7 @@
 # Copyright (c) 2025 DramaBot
 # Bot untuk streaming drama ke Telegram voice chat
 
-
+import aiohttp
 from ntgcalls import (ConnectionNotFound, TelegramServerError,
                       RTMPStreamingUnsupported)
 from pyrogram import enums
@@ -48,6 +48,14 @@ class TgCall(PyTgCalls):
         except:
             pass
 
+    async def _check_url(self, url: str) -> bool:
+        """Check if URL is accessible"""
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.head(url, timeout=5) as resp:
+                    return resp.status == 200
+        except:
+            return False
 
     async def play_media(
         self,
@@ -63,12 +71,39 @@ class TgCall(PyTgCalls):
             else config.DEFAULT_THUMB
         )
 
-        if not media.file_path:
+        if not media.file_path and not media.urls:
             await message.edit_text("❌ File tidak ditemukan. Hubungi owner!")
             return await self.play_next(chat_id)
 
+        # Determine valid URL (try list first, then single file_path)
+        valid_url = None
+
+        if media.urls:
+            # Sort urls by quality (descending)
+            # Ensure quality is int
+            sorted_urls = sorted(media.urls, key=lambda x: int(x.get("quality", 0)), reverse=True)
+
+            await message.edit_text("⏳ Memeriksa kualitas stream terbaik...")
+
+            for u in sorted_urls:
+                url = u.get("url")
+                if not url: continue
+
+                # Verify if stream is accessible
+                if await self._check_url(url):
+                    valid_url = url
+                    logger.info(f"Selected stream quality: {u.get('quality')}p")
+                    break
+
+        if not valid_url:
+            valid_url = media.file_path
+
+        if not valid_url:
+             await message.edit_text("❌ Semua link streaming mati. Coba lagi nanti.")
+             return await self.play_next(chat_id)
+
         stream = types.MediaStream(
-            media_path=media.file_path,
+            media_path=valid_url,
             audio_parameters=types.AudioQuality.HIGH,
             video_parameters=types.VideoQuality.HD_720p,
             audio_flags=types.MediaStream.Flags.REQUIRED,
@@ -163,7 +198,7 @@ class TgCall(PyTgCalls):
         
         # For drama, file_path should already be the video URL
         # No need to download like YouTube
-        if not media.file_path:
+        if not media.file_path and not media.urls:
             await self.stop(chat_id)
             return await msg.edit_text(
                 "❌ URL episode tidak ditemukan. Hubungi owner!"

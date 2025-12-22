@@ -5,7 +5,7 @@ Client untuk berinteraksi dengan DramaBox API
 
 import aiohttp
 import logging
-from typing import Optional
+from typing import Optional, List, Dict
 from .models import Drama, Episode
 
 logger = logging.getLogger(__name__)
@@ -120,7 +120,15 @@ class DramaBoxAPI:
         except Exception as e:
             logger.error(f"Error search: {e}")
             return []
-    
+
+    def _get_best_url(self, urls: List[Dict]) -> str:
+        """Helper to get best URL from list"""
+        if not urls:
+            return ""
+        # Sort by quality descending
+        sorted_urls = sorted(urls, key=lambda x: x.get("quality", 0), reverse=True)
+        return sorted_urls[0].get("url", "")
+
     async def get_all_episodes(self, book_id: str) -> list[Episode]:
         """Ambil semua episode dari drama (dengan link streaming)"""
         try:
@@ -131,17 +139,19 @@ class DramaBoxAPI:
             items = data if isinstance(data, list) else []
             
             for idx, item in enumerate(items, 1):  # Episode number from index
-                # Get video URL from cdnList -> videoPathList (prefer highest quality)
-                video_url = ""
-                if isinstance(item.get("cdnList"), list) and item["cdnList"]:
-                    # Get first cdnList item
-                    cdn = item["cdnList"][0]
-                    if isinstance(cdn.get("videoPathList"), list) and cdn["videoPathList"]:
-                        # Sort by quality descending and get first (highest quality  non-VIP)
-                        video_paths = [v for v in cdn["videoPathList"] if not v.get("isVipEquity", 0)]
-                        if video_paths:
-                            video_paths_sorted = sorted(video_paths, key=lambda x: x.get("quality", 0), reverse=True)
-                            video_url = video_paths_sorted[0].get("videoPath", "")
+                urls = []
+                # Iterate through all CDNs
+                if isinstance(item.get("cdnList"), list):
+                    for cdn in item["cdnList"]:
+                        if isinstance(cdn.get("videoPathList"), list):
+                            for v in cdn["videoPathList"]:
+                                if not v.get("isVipEquity", 0): # Filter VIP if needed, or maybe include but mark?
+                                    urls.append({
+                                        "quality": v.get("quality", 0),
+                                        "url": v.get("videoPath", "")
+                                    })
+
+                video_url = self._get_best_url(urls)
                 
                 episode = Episode(
                     book_id=book_id,
@@ -150,6 +160,7 @@ class DramaBoxAPI:
                     video_url=video_url,
                     duration=item.get("duration"),
                     thumbnail=item.get("chapterImg"),
+                    urls=urls
                 )
                 episodes.append(episode)
             
