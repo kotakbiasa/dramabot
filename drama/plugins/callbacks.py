@@ -202,7 +202,8 @@ async def play_episode_callback(_, query: CallbackQuery):
             book_id=book_id,
             tags="Drama, Romance", # Default tags
             video=True,
-            message_id=msg.id
+            message_id=msg.id,
+            urls=episode.urls # Pass full list of URLs
         )
         
         # Check queue limit

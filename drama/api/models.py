@@ -3,8 +3,8 @@ DramaBox API Models
 Data structures untuk Drama dan Episode
 """
 
-from dataclasses import dataclass
-from typing import Optional
+from dataclasses import dataclass, field
+from typing import Optional, List, Dict
 
 
 @dataclass
@@ -33,6 +33,7 @@ class Episode:
     video_url: str
     duration: Optional[int] = None
     thumbnail: Optional[str] = None
+    urls: List[Dict] = field(default_factory=list)
     
     def __str__(self):
         return f"Episode {self.episode_num}: {self.title}"

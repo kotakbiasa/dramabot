@@ -3,7 +3,8 @@
 # This file is part of AnonXMusic
 
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import List, Dict
 
 
 @dataclass
@@ -18,6 +19,7 @@ class Media:
     time: int = 0
     user: str = None
     video: bool = False
+    urls: List[Dict] = field(default_factory=list)
 
 
 @dataclass
@@ -37,3 +39,4 @@ class Track:
     book_id: str = None
     tags: str = None
     video: bool = False
+    urls: List[Dict] = field(default_factory=list)
