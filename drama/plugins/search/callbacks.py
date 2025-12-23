@@ -66,10 +66,9 @@ async def drama_detail_callback(_, query: CallbackQuery):
         if row:  # Add remaining buttons
             keyboard.append(row)
         
-        # Play All and Download buttons
+        # Play All button
         keyboard.append([
-            InlineKeyboardButton("▶️ Play Semua", callback_data=f"playall_{book_id}_{owner_id}"),
-            InlineKeyboardButton("📥 Download", callback_data=f"dlmenu_{book_id}_{owner_id}")
+            InlineKeyboardButton("▶️ Play Semua", callback_data=f"playall_{book_id}_{owner_id}")
         ])
         
         # Calculate total pages
@@ -163,10 +162,9 @@ async def episodes_page_callback(_, query: CallbackQuery):
         total_pages = (len(episodes) + 9) // 10  # ceiling division
         current_page = page + 1  # page is 0-indexed
         
-        # Play All and Download buttons
+        # Play All button
         keyboard.append([
-            InlineKeyboardButton("▶️ Play Semua", callback_data=f"playall_{book_id}_{owner_id}"),
-            InlineKeyboardButton("📥 Download", callback_data=f"dlmenu_{book_id}_{owner_id}")
+            InlineKeyboardButton("▶️ Play Semua", callback_data=f"playall_{book_id}_{owner_id}")
         ])
         
         # Navigation with page indicator

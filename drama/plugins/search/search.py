@@ -39,11 +39,6 @@ async def search_command(_, message: Message):
         for i, drama in enumerate(dramas, 1):
             # Format clean
             text += f"**{i}. {drama.title}**\n"
-            text += f"📺 {drama.episode_count} episode"
-            
-            if drama.views:
-                text += f" • 👁 {drama.views}"
-            text += "\n\n"
         
         text += "💡 Klik nomor drama untuk mulai streaming!"
         
@@ -57,12 +52,11 @@ async def search_command(_, message: Message):
                 row = []
         
         await msg.delete()
-        await message.reply_photo(
-            photo=config.BOT_BANNER,
-            caption=text,
+        await message.reply_text(
+            text=text,
             parse_mode=enums.ParseMode.MARKDOWN,
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         
     except Exception as e:
-        await msg.edit_text(f"❌ Error: {str(e)}\nCoba lagi nanti.")
+        await message.reply_text(f"❌ Error: {str(e)}\nCoba lagi nanti.")

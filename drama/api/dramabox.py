@@ -97,7 +97,7 @@ class DramaBoxAPI:
     async def search(self, query: str, limit: int = 10) -> list[Drama]:
         """Cari drama berdasarkan query"""
         try:
-            data = await self._request("/dramabox/search", params={"q": query})
+            data = await self._request("/dramabox/search", params={"query": query})
             dramas = []
             
             # API returns list directly
@@ -107,7 +107,7 @@ class DramaBoxAPI:
                 drama = Drama(
                     book_id=str(item.get("bookId", "")),
                     title=item.get("bookName", "Unknown"),
-                    cover_url=item.get("coverWap", ""),
+                    cover_url=item.get("cover", ""),
                     description=item.get("introduction", ""),
                     episode_count=int(item.get("chapterCount", 0)),
                     category=None,
@@ -115,6 +115,9 @@ class DramaBoxAPI:
                     views=item.get("rankVo", {}).get("hotCode") if item.get("rankVo") else None,
                 )
                 dramas.append(drama)
+            
+            # Cache the search results for later use in get_drama_detail
+            self.search_cache = dramas
             
             return dramas
         except Exception as e:
@@ -178,9 +181,15 @@ class DramaBoxAPI:
         return None
     
     async def get_drama_detail(self, book_id: str) -> Optional[Drama]:
-        """Get drama detail by book_id - search in trending/latest/search"""
+        """Get drama detail by book_id - search in trending/latest/search cache"""
         try:
-            # Try trending first
+            # Check search cache first
+            if hasattr(self, 'search_cache'):
+                for drama in self.search_cache:
+                    if drama.book_id == book_id:
+                        return drama
+            
+            # Try trending
             trending = await self.get_trending(limit=50)
             for drama in trending:
                 if drama.book_id == book_id:
@@ -197,7 +206,7 @@ class DramaBoxAPI:
             if episodes:
                 return Drama(
                     book_id=book_id,
-                    title=episodes[0].title.replace("EP 1", "").strip() if episodes else "Unknown Drama",
+                    title=episodes[0].title.replace("EP 1", "").strip() or f"Drama {book_id}",
                     cover_url="",
                     description="",
                     episode_count=len(episodes),

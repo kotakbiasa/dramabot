@@ -14,10 +14,13 @@ def _list_modules():
         list: A list of module names as strings.
     """
     mod_dir = Path(__file__).parent
-    return [
-        file.stem
-        for file in mod_dir.glob("*.py")
-        if file.is_file() and file.name != "__init__.py"
-    ]
+    modules = []
+    for file in mod_dir.rglob("*.py"):
+        if file.name == "__init__.py":
+            continue
+        rel_path = file.relative_to(mod_dir)
+        module = str(rel_path.with_suffix("")).replace("/", ".")
+        modules.append(module)
+    return modules
 
 all_modules = frozenset(sorted(_list_modules()))

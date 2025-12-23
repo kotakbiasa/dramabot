@@ -36,7 +36,6 @@ async def download_command(_, message: Message):
         
         for i, drama in enumerate(dramas, 1):
             text += f"**{i}. {drama.title}**\n"
-            text += f"   📺 {drama.episode_count} Eps | 👁 {drama.views or 'N/A'}\n"
         
         text += "\n💡 Klik tombol untuk pilih drama!"
         
@@ -80,15 +79,20 @@ async def download_drama_callback(_, query: CallbackQuery):
             return await msg.edit_text("❌ Gagal mengambil episode.")
         
         # Build caption
-        caption = f"📥 <b>Download: {drama.title if drama else 'Drama'}</b>\n\n"
+        caption = f"📥 <b>{drama.title if drama else 'Drama Detail'}</b>\n\n"
         
         if drama and drama.description:
-            desc = drama.description[:500] + "..." if len(drama.description) > 500 else drama.description
+            desc = drama.description[:800] + "..." if len(drama.description) > 800 else drama.description
             desc = desc.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
             caption += f"<blockquote expandable>{desc}</blockquote>\n\n"
         
         caption += f"🆔 <b>Book ID:</b> <code>{book_id}</code>\n"
+        caption += f"🏷 <b>Tags:</b> Drama, Romance\n"
         caption += f"📺 <b>Total Episode:</b> {len(episodes)}\n"
+        
+        if drama and drama.views:
+            caption += f"👁 <b>Views:</b> {drama.views}\n"
+
         caption += f"\n💡 Pilih episode untuk download:"
         
         # Episode buttons (first page)
