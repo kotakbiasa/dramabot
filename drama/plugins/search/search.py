@@ -37,7 +37,7 @@ async def search_command(_, message: Message):
         keyboard = []
         
         for i, drama in enumerate(dramas, 1):
-            # Format clean
+            # Only show title
             text += f"**{i}. {drama.title}**\n"
         
         text += "💡 Klik nomor drama untuk mulai streaming!"

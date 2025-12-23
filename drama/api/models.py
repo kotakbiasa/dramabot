@@ -17,6 +17,7 @@ class Drama:
     episode_count: int
     category: Optional[str] = None
     tags: Optional[list[str]] = None
+    protagonist: Optional[str] = None
     rating: Optional[float] = None
     views: Optional[str] = None
     

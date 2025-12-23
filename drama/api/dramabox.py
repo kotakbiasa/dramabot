@@ -113,6 +113,8 @@ class DramaBoxAPI:
                     category=None,
                     rating=None,
                     views=item.get("rankVo", {}).get("hotCode") if item.get("rankVo") else None,
+                    tags=item.get("tagNames", []),
+                    protagonist=item.get("protagonist", "")
                 )
                 dramas.append(drama)
             
@@ -148,11 +150,11 @@ class DramaBoxAPI:
                     for cdn in item["cdnList"]:
                         if isinstance(cdn.get("videoPathList"), list):
                             for v in cdn["videoPathList"]:
-                                if not v.get("isVipEquity", 0): # Filter VIP if needed, or maybe include but mark?
-                                    urls.append({
-                                        "quality": v.get("quality", 0),
-                                        "url": v.get("videoPath", "")
-                                    })
+                                # Include all qualities (1080p, 720p, 540p)
+                                urls.append({
+                                    "quality": v.get("quality", 0),
+                                    "url": v.get("videoPath", "")
+                                })
 
                 video_url = self._get_best_url(urls)
                 
