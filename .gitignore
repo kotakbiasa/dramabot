@@ -1,8 +1,8 @@
 
 .cache
-*.txt
 .idea
 .DS_Store
+log.txt
 venv/
 cache/
 downloads/

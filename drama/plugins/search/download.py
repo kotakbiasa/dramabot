@@ -9,7 +9,7 @@ import os
 import time
 import asyncio
 import aiohttp
-from pyrogram.errors import FloodWait
+from pyrogram.errors import FloodWait, MessageNotModified
 import zipfile
 import shutil
 from pathlib import Path
@@ -623,11 +623,14 @@ async def batch_range_selector(_, query: CallbackQuery):
         
         keyboard.append([InlineKeyboardButton("« Kembali", callback_data=f"download_drama_{book_id}_{owner_id}")])
         
-        await query.message.edit_text(
-            caption,
-            parse_mode=enums.ParseMode.HTML,
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        try:
+            await query.message.edit_text(
+                caption,
+                parse_mode=enums.ParseMode.HTML,
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+        except MessageNotModified:
+            pass
     except Exception as e:
         await query.answer(f"❌ Error: {str(e)}", show_alert=True)
 

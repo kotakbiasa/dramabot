@@ -1,0 +1,8 @@
+aiohttp
+dnspython
+motor
+py-tgcalls
+pyrofork
+python-dotenv
+requests
+Pillow
