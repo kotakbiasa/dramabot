@@ -852,7 +852,8 @@ async def batch_download_handler(_, query: CallbackQuery):
                 })
             
             # Upload all parts in parallel
-            async def upload_part(zip_info):
+            # Upload all parts in parallel
+            async def upload_part(zip_info, progress=None):
                 """Upload a single ZIP part"""
                 part_caption = (
                     f"📦 <b>{drama_title}</b>\n"
@@ -873,7 +874,8 @@ async def batch_download_handler(_, query: CallbackQuery):
                 await query.message.reply_document(
                     document=str(zip_info['path']),
                     caption=part_caption,
-                    parse_mode=enums.ParseMode.HTML
+                    parse_mode=enums.ParseMode.HTML,
+                    progress=progress
                 )
             
             # Upload all parts in parallel
@@ -888,13 +890,76 @@ async def batch_download_handler(_, query: CallbackQuery):
                 parse_mode=enums.ParseMode.HTML
             )
             
-            # Limit parallel uploads to prevent MEMORY OOM issues
-            # Max 2 concurrent uploads is safer for VPS
+            # Unified progress tracking
+            # Format: {part_num: {'status': 'pending/uploading/done', 'progress': 0}}
+            upload_status = {
+                part['part_num']: {'status': '⏳ Pending', 'progress': 0} 
+                for part in zip_paths
+            }
+            
+            last_edit_time = [0]
+            
+            async def update_global_progress():
+                """Update the single message with all parts status"""
+                now = time.time()
+                # Rate limit edits (max 1 edit per 3 seconds)
+                if now - last_edit_time[0] < 3:
+                    return
+                
+                last_edit_time[0] = now
+                
+                status_text = f"📦 <b>Uploading {len(zip_paths)} Parts</b>\n\n"
+                status_text += f"🎬 <b>{drama_title}</b>\n"
+                status_text += f"💿 {resolution}p\n\n"
+                
+                all_done = True
+                for part_num in sorted(upload_status.keys()):
+                    info = upload_status[part_num]
+                    # Visual progress bar for uploading parts
+                    if info['status'] == '⬆️':
+                         prog = info['progress']
+                         bar_len = 10
+                         filled = int((prog / 100) * bar_len)
+                         bar = '▰' * filled + '▱' * (bar_len - filled)
+                         status_line = f"Start Part {part_num}: {info['status']} <code>[{bar}] {int(prog)}%</code>"
+                         all_done = False
+                    elif info['status'] == '✅':
+                         status_line = f"Start Part {part_num}: ✅ <b>Done</b>"
+                    else:
+                         status_line = f"Start Part {part_num}: {info['status']}"
+                         all_done = False
+                    
+                    status_text += f"{status_line}\n"
+                
+                try:
+                    if not all_done:
+                        await msg.edit_text(status_text, parse_mode=enums.ParseMode.HTML)
+                except:
+                    pass
+
+            # Limit parallel uploads
             sem = asyncio.Semaphore(2)
 
             async def upload_part_safe(zip_info):
+                part_num = zip_info['part_num']
+                
+                async def part_progress(current, total):
+                    percent = (current / total) * 100
+                    upload_status[part_num]['status'] = '⬆️'
+                    upload_status[part_num]['progress'] = percent
+                    await update_global_progress()
+                
                 async with sem:
-                    await upload_part(zip_info)
+                    # Update status to uploading (0%)
+                    upload_status[part_num]['status'] = '⬆️'
+                    await update_global_progress()
+                    
+                    await upload_part(zip_info, progress=part_progress)
+                    
+                    # Update status to done
+                    upload_status[part_num]['status'] = '✅'
+                    upload_status[part_num]['progress'] = 100
+                    await update_global_progress()
 
             # Upload in limited parallel
             upload_tasks = [upload_part_safe(zip_info) for zip_info in zip_paths]
