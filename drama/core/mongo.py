@@ -31,6 +31,8 @@ class MongoDB:
         self.assistant = {}
         self.assistantdb = self.db.assistant
 
+        self.resolution = {}  # Cache for resolution settings per chat
+
         self.auth = {}
         self.authdb = self.db.auth
 
@@ -351,3 +353,21 @@ class MongoDB:
         await self.get_blacklisted(True)
         await self.get_logger()
         logger.info("Database cache loaded.")
+
+    # RESOLUTION METHODS
+    async def get_resolution(self, chat_id: int) -> int:
+        """Get video resolution for chat (default: 720)"""
+        if chat_id not in self.resolution:
+            doc = await self.chatsdb.find_one({"_id": chat_id})
+            self.resolution[chat_id] = doc.get("resolution", 720) if doc else 720
+        return self.resolution[chat_id]
+
+    async def set_resolution(self, chat_id: int, resolution: int) -> None:
+        """Set video resolution for chat"""
+        self.resolution[chat_id] = resolution
+        await self.chatsdb.update_one(
+            {"_id": chat_id},
+            {"$set": {"resolution": resolution}},
+            upsert=True,
+        )
+

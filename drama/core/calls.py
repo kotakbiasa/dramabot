@@ -75,25 +75,58 @@ class TgCall(PyTgCalls):
             await message.edit_text("❌ File tidak ditemukan. Hubungi owner!")
             return await self.play_next(chat_id)
 
+        # Get preferred resolution from settings
+        preferred_res = await db.get_resolution(chat_id)
+
         # Determine valid URL (try list first, then single file_path)
         valid_url = None
+        selected_quality = 720
 
         if media.urls:
             # Sort urls by quality (descending)
-            # Ensure quality is int
             sorted_urls = sorted(media.urls, key=lambda x: int(x.get("quality", 0)), reverse=True)
 
-            await message.edit_text("⏳ Memeriksa kualitas stream terbaik...")
+            await message.edit_text(f"⏳ Mencari kualitas {preferred_res}p...")
 
+            # Try to find preferred resolution first
             for u in sorted_urls:
                 url = u.get("url")
-                if not url: continue
+                quality = int(u.get("quality", 0))
+                if not url:
+                    continue
+                
+                # If preferred resolution is available and accessible
+                if quality == preferred_res:
+                    if await self._check_url(url):
+                        valid_url = url
+                        selected_quality = quality
+                        logger.info(f"Selected preferred quality: {quality}p")
+                        break
 
-                # Verify if stream is accessible
-                if await self._check_url(url):
-                    valid_url = url
-                    logger.info(f"Selected stream quality: {u.get('quality')}p")
-                    break
+            # If preferred not available, try closest lower quality
+            if not valid_url:
+                for u in sorted_urls:
+                    url = u.get("url")
+                    quality = int(u.get("quality", 0))
+                    if not url or quality > preferred_res:
+                        continue
+                    if await self._check_url(url):
+                        valid_url = url
+                        selected_quality = quality
+                        logger.info(f"Selected fallback quality: {quality}p")
+                        break
+
+            # If still not found, try any available quality
+            if not valid_url:
+                for u in sorted_urls:
+                    url = u.get("url")
+                    if not url:
+                        continue
+                    if await self._check_url(url):
+                        valid_url = url
+                        selected_quality = int(u.get("quality", 720))
+                        logger.info(f"Selected available quality: {selected_quality}p")
+                        break
 
         if not valid_url:
             valid_url = media.file_path
@@ -102,10 +135,19 @@ class TgCall(PyTgCalls):
              await message.edit_text("❌ Semua link streaming mati. Coba lagi nanti.")
              return await self.play_next(chat_id)
 
+        # Map resolution to VideoQuality
+        video_quality_map = {
+            360: types.VideoQuality.SD_360p,
+            480: types.VideoQuality.SD_480p,
+            720: types.VideoQuality.HD_720p,
+            1080: types.VideoQuality.FHD_1080p,
+        }
+        video_quality = video_quality_map.get(selected_quality, types.VideoQuality.HD_720p)
+
         stream = types.MediaStream(
             media_path=valid_url,
             audio_parameters=types.AudioQuality.HIGH,
-            video_parameters=types.VideoQuality.HD_720p,
+            video_parameters=video_quality,
             audio_flags=types.MediaStream.Flags.REQUIRED,
             video_flags=(
                 types.MediaStream.Flags.AUTO_DETECT
@@ -124,10 +166,14 @@ class TgCall(PyTgCalls):
                 media.time = 1
                 await db.add_call(chat_id)
                 text = f"🎬 <b>Sekarang Diputar</b>\n\n"
-                text += f"📺 <b>Judul:</b> {media.title}\n"
+                
+                # Clean title (remove EP/Episode part)
+                import re
+                clean_title = re.sub(r'\s*[-|]?\s*(?:EP|Episode)\s*\d+', '', media.title, re.IGNORECASE).strip()
+                clean_title = re.sub(r'\s*-\s*$', '', clean_title).strip()
+                text += f"📺 <b>Judul:</b> {clean_title}\n"
                 
                 # Extract and show episode number if available
-                import re
                 episode_match = re.search(r'(?:EP|Episode)\s*(\d+)', media.title, re.IGNORECASE)
                 if episode_match:
                     text += f"📌 <b>Episode:</b> {episode_match.group(1)}\n"
@@ -180,6 +226,10 @@ class TgCall(PyTgCalls):
 
     async def play_next(self, chat_id: int) -> None:
         media = queue.get_next(chat_id)
+        
+        if not media:
+            return await self.stop(chat_id)
+        
         try:
             if media.message_id:
                 await app.delete_messages(
@@ -190,9 +240,6 @@ class TgCall(PyTgCalls):
                 media.message_id = 0
         except:
             pass
-
-        if not media:
-            return await self.stop(chat_id)
 
         msg = await app.send_message(chat_id=chat_id, text="⏭ Memutar episode berikutnya...")
         

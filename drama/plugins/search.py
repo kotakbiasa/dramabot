@@ -2,10 +2,10 @@
 # Plugin untuk mencari drama
 
 
-from pyrogram import filters
+from pyrogram import filters, enums
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
-from drama import app, api
+from drama import app, api, config
 
 
 @app.on_message(filters.command("search"))
@@ -48,15 +48,19 @@ async def search_command(_, message: Message):
         text += "💡 Klik nomor drama untuk mulai streaming!"
         
         # Create compact number buttons (5 per row)
+        user_id = message.from_user.id
         row = []
         for i, drama in enumerate(dramas, 1):
-            row.append(InlineKeyboardButton(str(i), callback_data=f"drama_{drama.book_id}"))
+            row.append(InlineKeyboardButton(str(i), callback_data=f"drama_{drama.book_id}_{user_id}"))
             if i % 5 == 0 or i == len(dramas):
                 keyboard.append(row)
                 row = []
         
-        await msg.edit_text(
-            text,
+        await msg.delete()
+        await message.reply_photo(
+            photo=config.BOT_BANNER,
+            caption=text,
+            parse_mode=enums.ParseMode.MARKDOWN,
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         

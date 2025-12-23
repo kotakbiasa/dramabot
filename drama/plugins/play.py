@@ -9,7 +9,7 @@ from drama import app, api, queue, config, drama_call, db
 from drama.helpers import Track
 
 
-@app.on_message(filters.command(["play", "vplay"]) & filters.group & ~app.bl_users)
+@app.on_message(filters.command(["drama", "vplay"]) & filters.group & ~app.bl_users)
 async def play_command(_, message: Message):
     """Play drama episode"""
     
@@ -17,10 +17,10 @@ async def play_command(_, message: Message):
     if len(message.command) < 2:
         return await message.reply_text(
             "❌ **Cara penggunaan:**\n"
-            "`/play <judul drama>` - Cari drama untuk diputar\n\n"
+            "`/drama <judul drama>` - Cari drama untuk diputar\n\n"
             "**Contoh:**\n"
-            "`/play cinta`\n"
-            "`/play 41000116666 1` (Direct ID)"
+            "`/drama cinta`\n"
+            "`/drama 41000116666 1` (Direct ID)"
         )
     
     # Check if Direct ID mode (ID + Episode Num)
@@ -65,9 +65,10 @@ async def play_search(message: Message):
         
         text += "\n💡 Klik tombol di bawah untuk memilih drama!"
         
+        user_id = message.from_user.id
         row = []
         for i, drama in enumerate(dramas, 1):
-            row.append(InlineKeyboardButton(str(i), callback_data=f"drama_{drama.book_id}"))
+            row.append(InlineKeyboardButton(str(i), callback_data=f"drama_{drama.book_id}_{user_id}"))
             if i % 5 == 0:
                 keyboard.append(row)
                 row = []

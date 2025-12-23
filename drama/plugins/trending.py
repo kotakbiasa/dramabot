@@ -2,10 +2,10 @@
 # Plugin untuk menampilkan drama trending
 
 
-from pyrogram import filters
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram import filters, enums
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto
 
-from drama import app, api
+from drama import app, api, config
 
 
 @app.on_message(filters.command("trending"))
@@ -34,15 +34,19 @@ async def trending_command(_, message: Message):
         text += "💡 Klik nomor drama untuk mulai streaming!"
         
         # Create compact number buttons (5 per row)
+        user_id = message.from_user.id
         row = []
         for i, drama in enumerate(dramas, 1):
-            row.append(InlineKeyboardButton(str(i), callback_data=f"drama_{drama.book_id}"))
+            row.append(InlineKeyboardButton(str(i), callback_data=f"drama_{drama.book_id}_{user_id}"))
             if i % 5 == 0 or i == len(dramas):
                 keyboard.append(row)
                 row = []
         
-        await msg.edit_text(
-            text,
+        await msg.delete()
+        await message.reply_photo(
+            photo=config.BOT_BANNER,
+            caption=text,
+            parse_mode=enums.ParseMode.MARKDOWN,
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         
@@ -69,9 +73,10 @@ async def browse_trending_callback(_, query):
             text += f"📺 {drama.episode_count} episode\n\n"
         
         # Create compact number buttons (5 per row)
+        user_id = query.from_user.id
         row = []
         for i, drama in enumerate(dramas, 1):
-            row.append(InlineKeyboardButton(str(i), callback_data=f"drama_{drama.book_id}"))
+            row.append(InlineKeyboardButton(str(i), callback_data=f"drama_{drama.book_id}_{user_id}"))
             if i % 5 == 0 or i == len(dramas):
                 keyboard.append(row)
                 row = []
@@ -80,10 +85,24 @@ async def browse_trending_callback(_, query):
             InlineKeyboardButton("« Kembali", callback_data="start_home")
         ])
         
-        await query.message.edit_text(
-            text,
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        # Check if message has photo, if yes edit caption, if no delete and send photo
+        if query.message.photo:
+             await query.message.edit_media(
+                media=InputMediaPhoto(
+                    media=config.BOT_BANNER,
+                    caption=text,
+                    parse_mode=enums.ParseMode.MARKDOWN
+                ),
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+        else:
+            await query.message.delete()
+            await query.message.reply_photo(
+                photo=config.BOT_BANNER,
+                caption=text,
+                parse_mode=enums.ParseMode.MARKDOWN,
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
         
     except Exception as e:
         await query.message.edit_text(f"❌ Error: {str(e)}")

@@ -9,11 +9,17 @@ from drama import app, api, drama_call, db, queue, config
 from drama.helpers import buttons
 
 
-@app.on_callback_query(filters.regex(r"^drama_(\d+)$"))
+@app.on_callback_query(filters.regex(r"^drama_(\d+)_(\d+)$"))
 async def drama_detail_callback(_, query: CallbackQuery):
     """Show drama detail when user clicks drama button"""
-    await query.answer("Loading...")
     book_id = query.matches[0].group(1)
+    owner_id = int(query.matches[0].group(2))
+    
+    # Check if user is the requester
+    if query.from_user.id != owner_id:
+        return await query.answer("❌ Ini bukan permintaan kamu!", show_alert=True)
+    
+    await query.answer("Loading...")
     
     try:
         # Get drama detail and episodes
@@ -53,18 +59,29 @@ async def drama_detail_callback(_, query: CallbackQuery):
         keyboard = []
         row = []
         for ep in page_episodes:
-            row.append(InlineKeyboardButton(f"Eps {ep.episode_num}", callback_data=f"play_{book_id}_{ep.episode_num}"))
+            row.append(InlineKeyboardButton(f"Eps {ep.episode_num}", callback_data=f"play_{book_id}_{ep.episode_num}_{owner_id}"))
             if len(row) == 4:
                 keyboard.append(row)
                 row = []
         if row:  # Add remaining buttons
             keyboard.append(row)
         
-        # Navigation buttons
+        # Play All and Download buttons
+        keyboard.append([
+            InlineKeyboardButton("▶️ Play Semua", callback_data=f"playall_{book_id}_{owner_id}"),
+            InlineKeyboardButton("📥 Download", callback_data=f"dlmenu_{book_id}_{owner_id}")
+        ])
+        
+        # Calculate total pages
+        total_pages = (len(episodes) + 9) // 10  # ceiling division
+        current_page = 1
+        
+        # Navigation buttons with page indicator
         nav_row = []
-        if len(episodes) > 10:
-            nav_row.append(InlineKeyboardButton("Berikutnya »", callback_data=f"episodes_{book_id}_1"))
-        nav_row.append(InlineKeyboardButton("« Kembali", callback_data="back_to_browse"))
+        if total_pages > 1:
+            nav_row.append(InlineKeyboardButton(f"{current_page}/{total_pages}", callback_data="noop"))
+            nav_row.append(InlineKeyboardButton("Berikutnya »", callback_data=f"episodes_{book_id}_1_{owner_id}"))
+        nav_row.append(InlineKeyboardButton("🗑 Tutup", callback_data="close"))
         keyboard.append(nav_row)
         
         # Delete old message and send new with photo
@@ -88,12 +105,18 @@ async def drama_detail_callback(_, query: CallbackQuery):
         await query.message.edit_text(f"❌ Error: {str(e)}")
 
 
-@app.on_callback_query(filters.regex(r"^episodes_(\d+)_(\d+)$"))
+@app.on_callback_query(filters.regex(r"^episodes_(\d+)_(\d+)_(\d+)$"))
 async def episodes_page_callback(_, query: CallbackQuery):
     """Handle episode pagination"""
-    await query.answer()
     book_id = query.matches[0].group(1)
     page = int(query.matches[0].group(2))
+    owner_id = int(query.matches[0].group(3))
+    
+    # Check if user is the requester
+    if query.from_user.id != owner_id:
+        return await query.answer("❌ Ini bukan permintaan kamu!", show_alert=True)
+    
+    await query.answer()
     
     try:
         drama = await api.get_drama_detail(book_id)
@@ -129,23 +152,33 @@ async def episodes_page_callback(_, query: CallbackQuery):
         keyboard = []
         row = []
         for ep in page_episodes:
-            row.append(InlineKeyboardButton(f"Eps {ep.episode_num}", callback_data=f"play_{book_id}_{ep.episode_num}"))
+            row.append(InlineKeyboardButton(f"Eps {ep.episode_num}", callback_data=f"play_{book_id}_{ep.episode_num}_{owner_id}"))
             if len(row) == 4:
                 keyboard.append(row)
                 row = []
         if row:  # Add remaining buttons
             keyboard.append(row)
         
-        # Navigation
+        # Calculate total pages
+        total_pages = (len(episodes) + 9) // 10  # ceiling division
+        current_page = page + 1  # page is 0-indexed
+        
+        # Play All and Download buttons
+        keyboard.append([
+            InlineKeyboardButton("▶️ Play Semua", callback_data=f"playall_{book_id}_{owner_id}"),
+            InlineKeyboardButton("📥 Download", callback_data=f"dlmenu_{book_id}_{owner_id}")
+        ])
+        
+        # Navigation with page indicator
         nav_row = []
         if page > 0:
-            nav_row.append(InlineKeyboardButton("« Sebelumnya", callback_data=f"episodes_{book_id}_{page-1}"))
+            nav_row.append(InlineKeyboardButton("« Sebelumnya", callback_data=f"episodes_{book_id}_{page-1}_{owner_id}"))
+        nav_row.append(InlineKeyboardButton(f"{current_page}/{total_pages}", callback_data="noop"))
         if end_idx < len(episodes):
-            nav_row.append(InlineKeyboardButton("Berikutnya »", callback_data=f"episodes_{book_id}_{page+1}"))
-        if nav_row:
-            keyboard.append(nav_row)
+            nav_row.append(InlineKeyboardButton("Berikutnya »", callback_data=f"episodes_{book_id}_{page+1}_{owner_id}"))
+        keyboard.append(nav_row)
         
-        keyboard.append([InlineKeyboardButton("« Kembali", callback_data=f"drama_{book_id}")])
+        keyboard.append([InlineKeyboardButton("🗑 Tutup", callback_data="close")])
         
         await query.message.edit_caption(
             caption=caption,
@@ -157,13 +190,114 @@ async def episodes_page_callback(_, query: CallbackQuery):
         await query.answer(f"❌ Error: {str(e)}", show_alert=True)
 
 
-@app.on_callback_query(filters.regex(r"^play_(\d+)_(\d+)$"))
+@app.on_callback_query(filters.regex(r"^playall_(\d+)_(\d+)$"))
+async def play_all_episodes_callback(_, query: CallbackQuery):
+    """Handle play all episodes button"""
+    book_id = query.matches[0].group(1)
+    owner_id = int(query.matches[0].group(2))
+    
+    # Check if user is the requester
+    if query.from_user.id != owner_id:
+        return await query.answer("❌ Ini bukan permintaan kamu!", show_alert=True)
+    
+    await query.answer("Memuat semua episode...")
+    
+    chat_id = query.message.chat.id
+    
+    # Check if in group
+    if chat_id > 0:
+        return await query.message.edit_caption(
+            "❌ Command ini hanya bisa digunakan di grup!\n"
+            "Tambahkan bot ke grup dan gunakan di voice chat."
+        )
+    
+    try:
+        msg = await query.message.reply_text("⏳ Mengambil semua episode...")
+        
+        # Get all episodes
+        episodes = await api.get_all_episodes(book_id)
+        drama = await api.get_drama_detail(book_id)
+        
+        if not episodes:
+            return await msg.edit_text("❌ Tidak ada episode ditemukan.")
+        
+        # Calculate how many can be added
+        current_queue = len(queue.get_queue(chat_id))
+        available_slots = config.QUEUE_LIMIT - current_queue
+        
+        if available_slots <= 0:
+            return await msg.edit_text(
+                f"❌ Queue sudah penuh! (max: {config.QUEUE_LIMIT})\n"
+                f"Gunakan `/skip` atau `/stop` untuk clear queue."
+            )
+        
+        # Import Track class
+        from drama.helpers import Track
+        
+        # Add episodes to queue (limit to available slots)
+        episodes_to_add = episodes[:available_slots]
+        added_count = 0
+        
+        for episode in episodes_to_add:
+            if not episode.video_url and not episode.urls:
+                continue
+                
+            full_title = f"{drama.title} - {episode.title}" if drama else episode.title
+            
+            track = Track(
+                id=f"{book_id}_{episode.episode_num}",
+                channel_name="Drama Stream",
+                title=full_title,
+                duration=f"{episode.duration//60}:{episode.duration%60:02d}" if episode.duration else "Unknown",
+                duration_sec=episode.duration or 0,
+                url=episode.video_url,
+                file_path=episode.video_url,
+                thumbnail=drama.cover_url if drama and drama.cover_url else (episode.thumbnail or config.DEFAULT_THUMB),
+                user=query.from_user.mention,
+                book_id=book_id,
+                tags="Drama, Romance",
+                video=True,
+                message_id=msg.id,
+                urls=episode.urls
+            )
+            queue.add(chat_id, track)
+            added_count += 1
+        
+        if added_count == 0:
+            return await msg.edit_text("❌ Tidak ada episode yang bisa ditambahkan.")
+        
+        # Check if bot is in voice chat
+        if not await db.get_call(chat_id):
+            # Start playing first track
+            first_track = queue.get_current(chat_id)
+            if first_track:
+                await msg.edit_text(f"✅ {added_count} episode ditambahkan!\nMemulai playback...")
+                await drama_call.play_media(chat_id, msg, first_track)
+        else:
+            await msg.edit_text(
+                f"✅ **{added_count} Episode Ditambahkan ke Queue!**\n\n"
+                f"📺 {drama.title if drama else 'Drama'}\n"
+                f"📍 Total di queue: {len(queue.get_queue(chat_id))}\n\n"
+                f"Gunakan `/queue` untuk lihat antrian."
+            )
+        
+    except Exception as e:
+        await query.message.reply_text(f"❌ Error: {str(e)}")
+
+
+@app.on_callback_query(filters.regex(r"^play_(\d+)_(\d+)_(\d+)$"))
 async def play_episode_callback(_, query: CallbackQuery):
     """Handle play episode button"""
-    await query.answer("Memulai...")
-    
     book_id = query.matches[0].group(1)
     episode_num = int(query.matches[0].group(2))
+    owner_id = int(query.matches[0].group(3))
+    
+    # Check if user is the requester
+    if query.from_user.id != owner_id:
+        return await query.answer("❌ Ini bukan permintaan kamu!", show_alert=True)
+    
+    await query.answer("Memulai...")
+    
     chat_id = query.message.chat.id
     
     # Check if in group
@@ -173,7 +307,7 @@ async def play_episode_callback(_, query: CallbackQuery):
             "Tambahkan bot ke grup dan gunakan di voice chat."
         )
     
-    msg = await query.message.edit_text(f"⏳ Mengambil episode {episode_num}...")
+    msg = await query.message.reply_text(f"⏳ Mengambil episode {episode_num}...")
             
     try:
         # Get episode and drama details
@@ -238,7 +372,7 @@ async def play_episode_callback(_, query: CallbackQuery):
         await msg.edit_text(f"❌ Error: {str(e)}")
 
 
-@app.on_callback_query(filters.regex(r"^controls (pause|resume|replay|skip|stop) (\d+)"))
+@app.on_callback_query(filters.regex(r"^controls (pause|resume|replay|skip|stop|status|playpause) (-?\d+)"))
 async def playback_control_callback(_, query: CallbackQuery):
     """Handle playback control buttons"""
     action = query.matches[0].group(1)
@@ -248,7 +382,19 @@ async def playback_control_callback(_, query: CallbackQuery):
         return await query.answer("❌ Tidak ada yang sedang diputar!", show_alert=True)
     
     try:
-        if action == "pause":
+        if action == "status":
+            await query.answer("📺 Sedang diputar...")
+        elif action == "playpause":
+            # Toggle pause/resume based on current state
+            # playing() returns True if playing, False if paused
+            is_playing = await db.playing(chat_id)
+            if is_playing:
+                await drama_call.pause(chat_id)
+                await query.answer("⏸ Paused")
+            else:
+                await drama_call.resume(chat_id)
+                await query.answer("▶️ Resumed")
+        elif action == "pause":
             await drama_call.pause(chat_id)
             await query.answer("⏸ Paused")
         elif action == "resume":
