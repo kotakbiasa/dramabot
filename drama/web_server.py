@@ -7,12 +7,18 @@ app = Flask(__name__)
 
 # Helper function to run async code in Flask
 def run_async(coro):
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
+    """Run async coroutine in synchronous context"""
     try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
+        # Use asyncio.run which creates a proper task context
+        return asyncio.run(coro)
+    except RuntimeError:
+        # Fallback for edge cases
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
 
 @app.route('/')
 def index():
