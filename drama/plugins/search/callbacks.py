@@ -202,12 +202,40 @@ async def play_all_episodes_callback(_, query: CallbackQuery):
     
     chat_id = query.message.chat.id
     
-    # Check if in group
+    # Check if in PM (private message)
     if chat_id > 0:
-        return await query.message.edit_caption(
-            "❌ Command ini hanya bisa digunakan di grup!\n"
-            "Tambahkan bot ke grup dan gunakan di voice chat."
-        )
+        # In PM, show web streaming and download options
+        try:
+            episodes = await api.get_all_episodes(book_id)
+            drama = await api.get_drama_detail(book_id)
+            
+            if not episodes:
+                return await query.message.edit_caption("❌ Tidak ada episode ditemukan.")
+            
+            # Build text with web links and download options
+            text = f"🎬 **{drama.title if drama else 'Drama'}**\n\n"
+            text += f"📺 Total: {len(episodes)} episode\n\n"
+            text += "💡 **Pilihan untuk PM:**\n"
+            text += f"🌐 Stream di Web: {config.WEB_URL}/watch/{book_id}/1\n"
+            text += f"📥 Gunakan /download untuk download episode\n\n"
+            text += "⚠️ Untuk voice chat streaming, gunakan bot di grup!"
+            
+            # Create buttons
+            keyboard = [
+                [
+                    InlineKeyboardButton("📥 Download", callback_data=f"download_{book_id}_1_{owner_id}"),
+                    InlineKeyboardButton("🌐 Web Player", url=f"{config.WEB_URL}/watch/{book_id}/1")
+                ],
+                [InlineKeyboardButton("🗑 Tutup", callback_data="close")]
+            ]
+            
+            await query.message.edit_caption(
+                caption=text,
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+            return
+        except Exception as e:
+            return await query.message.edit_caption(f"❌ Error: {str(e)}")
     
     try:
         msg = await query.message.reply_text("⏳ Mengambil semua episode...")
@@ -298,12 +326,47 @@ async def play_episode_callback(_, query: CallbackQuery):
     
     chat_id = query.message.chat.id
     
-    # Check if in group
+    # Check if in PM (private message)
     if chat_id > 0:
-        return await query.message.edit_text(
-            "❌ Command ini hanya bisa digunakan di grup!\n"
-            "Tambahkan bot ke grup dan gunakan di voice chat."
-        )
+        # In PM, show web streaming and download options
+        try:
+            episode = await api.get_episode(book_id, episode_num)
+            drama = await api.get_drama_detail(book_id)
+            
+            if not episode:
+                return await query.message.edit_text("❌ Episode tidak ditemukan.")
+            
+            full_title = f"{drama.title} - {episode.title}" if drama else episode.title
+            web_link = f"{config.WEB_URL}/watch/{book_id}/{episode_num}"
+            
+            # Build text
+            text = f"🎬 **{full_title}**\n\n"
+            text += f"📺 Episode {episode_num}\n"
+            if episode.duration:
+                text += f"⏱ Durasi: {episode.duration//60}:{episode.duration%60:02d}\n"
+            text += f"\n💡 **Pilihan untuk PM:**\n"
+            text += f"🌐 [Stream di Web Player]({web_link})\n"
+            text += f"📥 Download episode ini\n\n"
+            text += "⚠️ Untuk voice chat streaming, gunakan bot di grup!"
+            
+            # Create buttons
+            keyboard = [
+                [
+                    InlineKeyboardButton("📥 Download", callback_data=f"download_{book_id}_{episode_num}_{owner_id}"),
+                    InlineKeyboardButton("🌐 Web Player", url=web_link)
+                ],
+                [InlineKeyboardButton("« Kembali", callback_data=f"drama_{book_id}_{owner_id}")],
+                [InlineKeyboardButton("🗑 Tutup", callback_data="close")]
+            ]
+            
+            await query.message.edit_text(
+                text=text,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                disable_web_page_preview=False
+            )
+            return
+        except Exception as e:
+            return await query.message.edit_text(f"❌ Error: {str(e)}")
     
     msg = await query.message.reply_text(f"⏳ Mengambil episode {episode_num}...")
             
