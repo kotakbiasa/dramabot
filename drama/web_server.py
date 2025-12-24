@@ -1,29 +1,26 @@
 # Flask Web Server for Drama Streaming
 from flask import Flask, render_template, jsonify, redirect, request
 import asyncio
-import concurrent.futures
-from functools import wraps
+import threading
 from drama import api, config
 
 app = Flask(__name__)
 
-# Thread executor for running async code
-executor = concurrent.futures.ThreadPoolExecutor(max_workers=5)
+# Thread-local storage for event loops
+_thread_locals = threading.local()
 
-def run_async(coro):
-    """Run async coroutine in synchronous context using thread executor"""
-    def _run_in_thread():
-        # Create new event loop in thread
+def get_event_loop():
+    """Get or create event loop for current thread"""
+    if not hasattr(_thread_locals, 'loop') or _thread_locals.loop.is_closed():
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-        try:
-            return loop.run_until_complete(coro)
-        finally:
-            loop.close()
-    
-    # Submit to thread executor and wait for result
-    future = executor.submit(_run_in_thread)
-    return future.result(timeout=60)  # 60 second timeout
+        _thread_locals.loop = loop
+    return _thread_locals.loop
+
+def run_async(coro):
+    """Run async coroutine in synchronous context"""
+    loop = get_event_loop()
+    return loop.run_until_complete(coro)
 
 @app.route('/')
 def index():
