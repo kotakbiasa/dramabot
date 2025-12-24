@@ -40,7 +40,10 @@ def watch(book_id, episode_num):
         drama = run_async(api.get_drama_detail(book_id))
         
         if not episode:
-            return "Episode not found", 404
+            return f"Episode {episode_num} not found for drama {book_id}. Try episode 1.", 404
+        
+        if not episode.video_url and not episode.urls:
+            return f"No video URL available for episode {episode_num}", 404
         
         return render_template(
             'player.html',
@@ -50,7 +53,7 @@ def watch(book_id, episode_num):
             episode_num=episode_num
         )
     except Exception as e:
-        return f"Error loading episode: {str(e)}", 500
+        return f"Error loading episode: {str(e)}<br><br>Book ID: {book_id}<br>Episode: {episode_num}", 500
 
 @app.route('/api/episode/<book_id>/<int:episode_num>')
 def api_episode(book_id, episode_num):
