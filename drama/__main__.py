@@ -16,7 +16,7 @@ from drama.plugins import all_modules
 def start_web_server():
     """Start Flask web server in a separate thread"""
     try:
-        from web_server import app as flask_app
+        from drama.web_server import app as flask_app
         logger.info(f"Starting web server on port {config.WEB_PORT}...")
         flask_app.run(
             host='0.0.0.0',
