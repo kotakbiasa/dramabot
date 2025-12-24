@@ -355,10 +355,12 @@ async def play_episode_callback(_, query: CallbackQuery):
             await drama_call.play_media(chat_id, msg, track)
         else:
             # Already playing, notify added to queue
+            web_link = f"{config.WEB_URL}/watch/{book_id}/{episode_num}"
             await msg.edit_text(
                 f"✅ **Ditambahkan ke Queue!**\n\n"
                 f"📺 {track.title}\n"
                 f"📍 Posisi: #{len(queue.get_queue(chat_id))}\n\n"
+                f"🌐 [Watch on Web]({web_link})\n\n"
                 f"Gunakan `/queue` untuk lihat antrian."
             )
             

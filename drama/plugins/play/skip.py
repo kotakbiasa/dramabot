@@ -19,5 +19,11 @@ async def skip_command(_, message: Message):
     try:
         await drama_call.play_next(chat_id)
         await message.reply_text("⏭ **Skipped ke episode berikutnya**")
+        
+        # Auto delete command message
+        try:
+            await message.delete()
+        except:
+            pass
     except Exception as e:
         await message.reply_text(f"❌ Error: {str(e)}")

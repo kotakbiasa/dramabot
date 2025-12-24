@@ -47,3 +47,9 @@ async def queue_command(_, message: Message):
         text,
         reply_markup=buttons.queue_markup(chat_id, status_text, is_playing and not paused)
     )
+    
+    # Auto delete command message
+    try:
+        await message.delete()
+    except:
+        pass

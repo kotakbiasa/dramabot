@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ drama.title if drama else 'Drama' }} - Episode {{ episode_num }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .player-card {
+            background: white;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        .video-container {
+            position: relative;
+            padding-top: 56.25%; /* 16:9 Aspect Ratio */
+            background: #000;
+        }
+        
+        video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .player-info {
+            padding: 30px;
+        }
+        
+        h1 {
+            font-size: 28px;
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        h2 {
+            font-size: 20px;
+            color: #666;
+            font-weight: normal;
+            margin-bottom: 20px;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        
+        .quality-selector {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .quality-selector label {
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .quality-btn {
+            padding: 10px 20px;
+            border: 2px solid #667eea;
+            background: white;
+            color: #667eea;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        
+        .quality-btn:hover {
+            background: #667eea;
+            color: white;
+        }
+        
+        .quality-btn.active {
+            background: #667eea;
+            color: white;
+        }
+        
+        .download-btn {
+            padding: 12px 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 16px;
+            transition: transform 0.2s;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        
+        .info-item {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .info-label {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
+        
+        .info-value {
+            font-size: 16px;
+            color: #333;
+            font-weight: 600;
+        }
+        
+        @media (max-width: 768px) {
+            .player-info {
+                padding: 20px;
+            }
+            
+            h1 {
+                font-size: 22px;
+            }
+            
+            .controls {
+                flex-direction: column;
+            }
+            
+            .quality-selector {
+                flex-wrap: wrap;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="player-card">
+            <div class="video-container">
+                <video id="player" controls autoplay>
+                    <source src="{{ episode.video_url }}" type="video/mp4">
+                    Your browser does not support the video tag.
+                </video>
+            </div>
+            
+            <div class="player-info">
+                <h1>{{ drama.title if drama else 'Drama ' + book_id }}</h1>
+                <h2>Episode {{ episode_num }}: {{ episode.title }}</h2>
+                
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Episode</span>
+                        <span class="info-value">{{ episode_num }}</span>
+                    </div>
+                    {% if episode.duration %}
+                    <div class="info-item">
+                        <span class="info-label">Duration</span>
+                        <span class="info-value">{{ episode.duration // 60 }}:{{ '%02d' % (episode.duration % 60) }}</span>
+                    </div>
+                    {% endif %}
+                    {% if drama and drama.views %}
+                    <div class="info-item">
+                        <span class="info-label">Views</span>
+                        <span class="info-value">{{ drama.views }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+                
+                <div class="controls">
+                    <div class="quality-selector">
+                        <label>Quality:</label>
+                        {% if episode.urls %}
+                            {% for url_data in episode.urls %}
+                                <button class="quality-btn {% if loop.first %}active{% endif %}" 
+                                        onclick="changeQuality('{{ url_data.url }}', {{ url_data.quality }}, this)">
+                                    {{ url_data.quality }}p
+                                </button>
+                            {% endfor %}
+                        {% else %}
+                            <button class="quality-btn active">720p</button>
+                        {% endif %}
+                    </div>
+                    
+                    <a href="{{ episode.video_url }}" download class="download-btn">
+                        📥 Download Episode
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const player = document.getElementById('player');
+        let currentTime = 0;
+        
+        // Save current playback position
+        player.addEventListener('timeupdate', function() {
+            currentTime = player.currentTime;
+        });
+        
+        function changeQuality(url, quality, btn) {
+            // Remove active class from all buttons
+            document.querySelectorAll('.quality-btn').forEach(b => b.classList.remove('active'));
+            // Add active class to clicked button
+            btn.classList.add('active');
+            
+            // Change video source
+            const wasPlaying = !player.paused;
+            player.src = url;
+            player.currentTime = currentTime;
+            
+            if (wasPlaying) {
+                player.play();
+            }
+        }
+    </script>
+</body>
+</html>

@@ -228,7 +228,36 @@ class TgCall(PyTgCalls):
         media = queue.get_next(chat_id)
         
         if not media:
-            return await self.stop(chat_id)
+            # Auto clear after 15 seconds if no new items added
+            await app.send_message(
+                chat_id=chat_id,
+                text="✅ **Queue selesai!**\n\n⏳ Meninggalkan voice chat dalam 15 detik...\n💡 Tambah episode baru untuk membatalkan."
+            )
+            
+            # Wait 15 seconds
+            await asyncio.sleep(15)
+            
+            # Check again if queue is still empty
+            current_queue = queue.get_queue(chat_id)
+            if not current_queue or len(current_queue) == 0:
+                # Still empty, proceed with stop
+                await app.send_message(
+                    chat_id=chat_id,
+                    text="⏹ Queue masih kosong. Auto clearing..."
+                )
+                return await self.stop(chat_id)
+            else:
+                # New items added, cancel auto clear and continue
+                await app.send_message(
+                    chat_id=chat_id,
+                    text="▶️ Item baru ditambahkan! Melanjutkan playback..."
+                )
+                # Get the first item and play it
+                new_media = queue.get_current(chat_id)
+                if new_media:
+                    msg = await app.send_message(chat_id=chat_id, text="⏭ Memutar item berikutnya...")
+                    new_media.message_id = msg.id
+                    return await self.play_media(chat_id, msg, new_media)
         
         try:
             if media.message_id:

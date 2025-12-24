@@ -79,6 +79,12 @@ async def play_search(message: Message):
                 
         await msg.edit_text(text, reply_markup=InlineKeyboardMarkup(keyboard))
         
+        # Auto delete command message
+        try:
+            await message.delete()
+        except:
+            pass
+        
     except Exception as e:
         await msg.edit_text(f"❌ Error: {str(e)}")
 
@@ -149,12 +155,11 @@ async def play_direct(message: Message):
                 f"Gunakan `/queue` untuk lihat antrian."
             )
         
-        # Auto delete command if enabled
-        if await db.get_cmd_delete(chat_id):
-            try:
-                await message.delete()
-            except:
-                pass
+        # Auto delete command message
+        try:
+            await message.delete()
+        except:
+            pass
                 
     except Exception as e:
         await msg.edit_text(f"❌ Error: {str(e)}")

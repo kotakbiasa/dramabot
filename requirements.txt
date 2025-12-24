@@ -6,3 +6,4 @@ pyrofork
 python-dotenv
 requests
 Pillow
+Flask

@@ -28,6 +28,10 @@ class Config:
         # DramaBox API
         self.DRAMABOX_API_URL = getenv("DRAMABOX_API_URL", "https://dramabox.sansekai.my.id/api")
         
+        # Web Server
+        self.WEB_URL = getenv("WEB_URL", "http://localhost:5000")
+        self.WEB_PORT = int(getenv("WEB_PORT", 5000))
+        
         # Images
         self.DEFAULT_THUMB = getenv("DEFAULT_THUMB", "https://te.legra.ph/file/3e40a408286d4eda24191.jpg")
         self.PING_IMG = getenv("PING_IMG", "https://files.catbox.moe/haagg2.png")
