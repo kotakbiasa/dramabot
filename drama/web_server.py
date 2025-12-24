@@ -18,9 +18,11 @@ def get_event_loop():
     return _thread_locals.loop
 
 def run_async(coro):
-    """Run async coroutine in synchronous context"""
+    """Run async coroutine in synchronous context with proper Task context"""
     loop = get_event_loop()
-    return loop.run_until_complete(coro)
+    # Create a Task to provide proper context for aiohttp timeout
+    task = loop.create_task(coro)
+    return loop.run_until_complete(task)
 
 @app.route('/')
 def index():
