@@ -216,18 +216,22 @@ async def play_all_episodes_callback(_, query: CallbackQuery):
             text = f"🎬 **{drama.title if drama else 'Drama'}**\n\n"
             text += f"📺 Total: {len(episodes)} episode\n\n"
             text += "💡 **Pilihan untuk PM:**\n"
-            text += f"🌐 Stream di Web: {config.WEB_URL}/watch/{book_id}/1\n"
+            
+            # Check if web URL is valid (not localhost)
+            has_web = config.WEB_URL and "localhost" not in config.WEB_URL and "127.0.0.1" not in config.WEB_URL
+            
+            if has_web:
+                text += f"🌐 Stream di Web: {config.WEB_URL}/watch/{book_id}/1\n"
             text += f"📥 Gunakan /download untuk download episode\n\n"
             text += "⚠️ Untuk voice chat streaming, gunakan bot di grup!"
             
             # Create buttons
-            keyboard = [
-                [
-                    InlineKeyboardButton("📥 Download", callback_data=f"download_{book_id}_1_{owner_id}"),
-                    InlineKeyboardButton("🌐 Web Player", url=f"{config.WEB_URL}/watch/{book_id}/1")
-                ],
-                [InlineKeyboardButton("🗑 Tutup", callback_data="close")]
-            ]
+            keyboard = []
+            button_row = [InlineKeyboardButton("📥 Download", callback_data=f"download_{book_id}_1_{owner_id}")]
+            if has_web:
+                button_row.append(InlineKeyboardButton("🌐 Web Player", url=f"{config.WEB_URL}/watch/{book_id}/1"))
+            keyboard.append(button_row)
+            keyboard.append([InlineKeyboardButton("🗑 Tutup", callback_data="close")])
             
             await query.message.edit_caption(
                 caption=text,
@@ -337,7 +341,10 @@ async def play_episode_callback(_, query: CallbackQuery):
                 return await query.message.edit_text("❌ Episode tidak ditemukan.")
             
             full_title = f"{drama.title} - {episode.title}" if drama else episode.title
-            web_link = f"{config.WEB_URL}/watch/{book_id}/{episode_num}"
+            
+            # Check if web URL is valid (not localhost)
+            has_web = config.WEB_URL and "localhost" not in config.WEB_URL and "127.0.0.1" not in config.WEB_URL
+            web_link = f"{config.WEB_URL}/watch/{book_id}/{episode_num}" if has_web else None
             
             # Build text
             text = f"🎬 **{full_title}**\n\n"
@@ -345,19 +352,19 @@ async def play_episode_callback(_, query: CallbackQuery):
             if episode.duration:
                 text += f"⏱ Durasi: {episode.duration//60}:{episode.duration%60:02d}\n"
             text += f"\n💡 **Pilihan untuk PM:**\n"
-            text += f"🌐 [Stream di Web Player]({web_link})\n"
+            if has_web:
+                text += f"🌐 [Stream di Web Player]({web_link})\n"
             text += f"📥 Download episode ini\n\n"
             text += "⚠️ Untuk voice chat streaming, gunakan bot di grup!"
             
             # Create buttons
-            keyboard = [
-                [
-                    InlineKeyboardButton("📥 Download", callback_data=f"download_{book_id}_{episode_num}_{owner_id}"),
-                    InlineKeyboardButton("🌐 Web Player", url=web_link)
-                ],
-                [InlineKeyboardButton("« Kembali", callback_data=f"drama_{book_id}_{owner_id}")],
-                [InlineKeyboardButton("🗑 Tutup", callback_data="close")]
-            ]
+            keyboard = []
+            button_row = [InlineKeyboardButton("📥 Download", callback_data=f"download_{book_id}_{episode_num}_{owner_id}")]
+            if has_web:
+                button_row.append(InlineKeyboardButton("🌐 Web Player", url=web_link))
+            keyboard.append(button_row)
+            keyboard.append([InlineKeyboardButton("« Kembali", callback_data=f"drama_{book_id}_{owner_id}")])
+            keyboard.append([InlineKeyboardButton("🗑 Tutup", callback_data="close")])
             
             await query.message.edit_text(
                 text=text,
