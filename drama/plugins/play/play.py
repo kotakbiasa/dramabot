@@ -1,7 +1,7 @@
 # Copyright (c) 2025 DramaBot
 # Main play command for drama streaming
 
-
+import asyncio
 from pyrogram import filters, enums
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -105,9 +105,11 @@ async def play_direct(message: Message):
     msg = await message.reply_text(f"⏳ Mengambil episode {episode_num}...")
     
     try:
-        # Get episode and drama details from API
-        episode = await api.get_episode(book_id, episode_num)
-        drama = await api.get_drama_detail(book_id)
+        # Get episode and drama details from API - use asyncio.gather for concurrent calls
+        episode, drama = await asyncio.gather(
+            api.get_episode(book_id, episode_num),
+            api.get_drama_detail(book_id)
+        )
         
         if not episode or not episode.video_url:
             return await msg.edit_text(

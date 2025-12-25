@@ -1,7 +1,7 @@
 # Copyright (c) 2025 DramaBot
 # Callback handlers untuk inline buttons
 
-
+import asyncio
 from pyrogram import filters, enums
 from pyrogram.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 
@@ -25,8 +25,11 @@ async def drama_detail_callback(_, query: CallbackQuery):
         # Get drama detail and episodes
         msg = await query.message.edit_text("⏳ Mengambil info drama...")
         
-        drama = await api.get_drama_detail(book_id)
-        episodes = await api.get_all_episodes(book_id)
+        # Use asyncio.gather for concurrent API calls
+        drama, episodes = await asyncio.gather(
+            api.get_drama_detail(book_id),
+            api.get_all_episodes(book_id)
+        )
         
         if not episodes:
             return await msg.edit_text("❌ Gagal mengambil episode drama ini.")
@@ -118,8 +121,11 @@ async def episodes_page_callback(_, query: CallbackQuery):
     await query.answer()
     
     try:
-        drama = await api.get_drama_detail(book_id)
-        episodes = await api.get_all_episodes(book_id)
+        # Use asyncio.gather for concurrent API calls
+        drama, episodes = await asyncio.gather(
+            api.get_drama_detail(book_id),
+            api.get_all_episodes(book_id)
+        )
         
         if not episodes:
             return await query.answer("❌ Episode tidak ditemukan", show_alert=True)
@@ -204,33 +210,35 @@ async def play_all_episodes_callback(_, query: CallbackQuery):
     
     # Check if in PM (private message)
     if chat_id > 0:
-        # In PM, show web streaming and download options
+        # In PM, show original URLs instead of web player
         try:
-            episodes = await api.get_all_episodes(book_id)
-            drama = await api.get_drama_detail(book_id)
+            # Use asyncio.gather for concurrent API calls
+            drama, episodes = await asyncio.gather(
+                api.get_drama_detail(book_id),
+                api.get_all_episodes(book_id)
+            )
             
             if not episodes:
                 return await query.message.edit_caption("❌ Tidak ada episode ditemukan.")
             
-            # Build text with web links and download options
+            # Build text with original URLs info
             text = f"🎬 **{drama.title if drama else 'Drama'}**\n\n"
             text += f"📺 Total: {len(episodes)} episode\n\n"
-            text += "💡 **Pilihan untuk PM:**\n"
             
-            # Check if web URL is valid (not localhost)
-            has_web = config.WEB_URL and "localhost" not in config.WEB_URL and "127.0.0.1" not in config.WEB_URL
+            # Get first episode to show available resolutions
+            first_episode = episodes[0] if episodes else None
+            if first_episode and first_episode.urls:
+                resolutions = sorted(list(set(int(u.get("quality", 0)) for u in first_episode.urls if u.get("quality"))), reverse=True)
+                if resolutions:
+                    text += f"💿 **Resolusi tersedia:** {', '.join(f'{r}p' for r in resolutions)}\n\n"
             
-            if has_web:
-                text += f"🌐 Stream di Web: {config.WEB_URL}/watch/{book_id}/1\n"
-            text += f"📥 Gunakan /download untuk download episode\n\n"
+            text += "💡 **Pilihan:**\n"
+            text += f"📥 Download episode\n\n"
             text += "⚠️ Untuk voice chat streaming, gunakan bot di grup!"
             
             # Create buttons
             keyboard = []
-            button_row = [InlineKeyboardButton("📥 Download", callback_data=f"download_{book_id}_1_{owner_id}")]
-            if has_web:
-                button_row.append(InlineKeyboardButton("🌐 Web Player", url=f"{config.WEB_URL}/watch/{book_id}/1"))
-            keyboard.append(button_row)
+            keyboard.append([InlineKeyboardButton("📥 Download", callback_data=f"download_{book_id}_1_{owner_id}")])
             keyboard.append([InlineKeyboardButton("🗑 Tutup", callback_data="close")])
             
             await query.message.edit_caption(
@@ -244,9 +252,11 @@ async def play_all_episodes_callback(_, query: CallbackQuery):
     try:
         msg = await query.message.reply_text("⏳ Mengambil semua episode...")
         
-        # Get all episodes
-        episodes = await api.get_all_episodes(book_id)
-        drama = await api.get_drama_detail(book_id)
+        # Get all episodes - use asyncio.gather for concurrent API calls
+        drama, episodes = await asyncio.gather(
+            api.get_drama_detail(book_id),
+            api.get_all_episodes(book_id)
+        )
         
         if not episodes:
             return await msg.edit_text("❌ Tidak ada episode ditemukan.")
@@ -332,44 +342,60 @@ async def play_episode_callback(_, query: CallbackQuery):
     
     # Check if in PM (private message)
     if chat_id > 0:
-        # In PM, show web streaming and download options
+        # In PM, show original URLs instead of web player
         try:
-            episode = await api.get_episode(book_id, episode_num)
-            drama = await api.get_drama_detail(book_id)
+            # Use asyncio.gather for concurrent API calls
+            episode, drama = await asyncio.gather(
+                api.get_episode(book_id, episode_num),
+                api.get_drama_detail(book_id)
+            )
             
             if not episode:
                 return await query.message.edit_text("❌ Episode tidak ditemukan.")
             
             full_title = f"{drama.title} - {episode.title}" if drama else episode.title
             
-            # Check if web URL is valid (not localhost)
-            has_web = config.WEB_URL and "localhost" not in config.WEB_URL and "127.0.0.1" not in config.WEB_URL
-            web_link = f"{config.WEB_URL}/watch/{book_id}/{episode_num}" if has_web else None
-            
-            # Build text
+            # Build text with original URLs
             text = f"🎬 **{full_title}**\n\n"
             text += f"📺 Episode {episode_num}\n"
             if episode.duration:
-                text += f"⏱ Durasi: {episode.duration//60}:{episode.duration%60:02d}\n"
-            text += f"\n💡 **Pilihan untuk PM:**\n"
-            if has_web:
-                text += f"🌐 [Stream di Web Player]({web_link})\n"
-            text += f"📥 Download episode ini\n\n"
+                text += f"⏱ Durasi: {episode.duration//60}:{episode.duration%60:02d}\n\n"
+            
+            # Show all available URLs with resolutions
+            if episode.urls:
+                # Group URLs by resolution
+                urls_by_quality = {}
+                for url_info in episode.urls:
+                    quality = int(url_info.get("quality", 0))
+                    url = url_info.get("url", "")
+                    if quality and url:
+                        urls_by_quality[quality] = url
+                
+                if urls_by_quality:
+                    text += "🔗 **Original URLs:**\n\n"
+                    for quality in sorted(urls_by_quality.keys(), reverse=True):
+                        url = urls_by_quality[quality]
+                        text += f"💿 **{quality}p:**\n`{url}`\n\n"
+                else:
+                    text += "⚠️ Tidak ada URL tersedia\n\n"
+            elif episode.video_url:
+                text += f"🔗 **Original URL:**\n`{episode.video_url}`\n\n"
+            else:
+                text += "❌ Tidak ada URL tersedia\n\n"
+            
+            text += "💡 _Tap URL untuk copy_\n\n"
             text += "⚠️ Untuk voice chat streaming, gunakan bot di grup!"
             
             # Create buttons
             keyboard = []
-            button_row = [InlineKeyboardButton("📥 Download", callback_data=f"download_{book_id}_{episode_num}_{owner_id}")]
-            if has_web:
-                button_row.append(InlineKeyboardButton("🌐 Web Player", url=web_link))
-            keyboard.append(button_row)
+            keyboard.append([InlineKeyboardButton("📥 Download", callback_data=f"download_{book_id}_{episode_num}_{owner_id}")])
             keyboard.append([InlineKeyboardButton("« Kembali", callback_data=f"drama_{book_id}_{owner_id}")])
             keyboard.append([InlineKeyboardButton("🗑 Tutup", callback_data="close")])
             
             await query.message.edit_text(
                 text=text,
                 reply_markup=InlineKeyboardMarkup(keyboard),
-                disable_web_page_preview=False
+                disable_web_page_preview=True
             )
             return
         except Exception as e:
@@ -378,9 +404,11 @@ async def play_episode_callback(_, query: CallbackQuery):
     msg = await query.message.reply_text(f"⏳ Mengambil episode {episode_num}...")
             
     try:
-        # Get episode and drama details
-        episode = await api.get_episode(book_id, episode_num)
-        drama = await api.get_drama_detail(book_id)
+        # Get episode and drama details - use asyncio.gather for concurrent API calls
+        episode, drama = await asyncio.gather(
+            api.get_episode(book_id, episode_num),
+            api.get_drama_detail(book_id)
+        )
         
         if not episode or not episode.video_url:
             return await msg.edit_text("❌ Episode tidak ditemukan atau link tidak tersedia.")
@@ -425,12 +453,13 @@ async def play_episode_callback(_, query: CallbackQuery):
             await drama_call.play_media(chat_id, msg, track)
         else:
             # Already playing, notify added to queue
-            web_link = f"{config.WEB_URL}/watch/{book_id}/{episode_num}"
+            # Show original URL instead of web link
+            original_url = track.url if track.url else "N/A"
             await msg.edit_text(
                 f"✅ **Ditambahkan ke Queue!**\n\n"
                 f"📺 {track.title}\n"
                 f"📍 Posisi: #{len(queue.get_queue(chat_id))}\n\n"
-                f"🌐 [Watch on Web]({web_link})\n\n"
+                f"🔗 **Original URL:**\n`{original_url}`\n\n"
                 f"Gunakan `/queue` untuk lihat antrian."
             )
             

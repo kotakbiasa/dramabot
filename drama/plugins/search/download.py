@@ -80,8 +80,11 @@ async def download_drama_button_callback(_, query: CallbackQuery):
     try:
         msg = await query.message.edit_text("⏳ Mengambil info drama...")
         
-        drama = await api.get_drama_detail(book_id)
-        episodes = await api.get_all_episodes(book_id)
+        # Use asyncio.gather for concurrent API calls
+        drama, episodes = await asyncio.gather(
+            api.get_drama_detail(book_id),
+            api.get_all_episodes(book_id)
+        )
         
         if not episodes:
             return await msg.edit_text("❌ Gagal mengambil episode.")
@@ -158,8 +161,11 @@ async def download_drama_callback(_, query: CallbackQuery):
     try:
         msg = await query.message.edit_text("⏳ Mengambil info drama...")
         
-        drama = await api.get_drama_detail(book_id)
-        episodes = await api.get_all_episodes(book_id)
+        # Use asyncio.gather for concurrent API calls
+        drama, episodes = await asyncio.gather(
+            api.get_drama_detail(book_id),
+            api.get_all_episodes(book_id)
+        )
         
         if not episodes:
             return await msg.edit_text("❌ Gagal mengambil episode.")
@@ -246,8 +252,11 @@ async def download_page_callback(_, query: CallbackQuery):
     await query.answer()
     
     try:
-        drama = await api.get_drama_detail(book_id)
-        episodes = await api.get_all_episodes(book_id)
+        # Use asyncio.gather for concurrent API calls
+        drama, episodes = await asyncio.gather(
+            api.get_drama_detail(book_id),
+            api.get_all_episodes(book_id)
+        )
         
         if not episodes:
             return await query.answer("❌ Episode tidak ditemukan", show_alert=True)
@@ -316,15 +325,17 @@ async def download_episode_callback(_, query: CallbackQuery):
     try:
         logger.info(f"Download episode clicked: book_id={book_id}, episode_num={episode_num}")
         
-        episode = await api.get_episode(book_id, episode_num)
+        # Use asyncio.gather for concurrent API calls
+        episode, drama = await asyncio.gather(
+            api.get_episode(book_id, episode_num),
+            api.get_drama_detail(book_id)
+        )
         
         if not episode:
             logger.warning(f"Episode not found: {book_id} ep {episode_num}")
             return await query.answer("❌ Episode tidak ditemukan", show_alert=True)
         
         logger.info(f"Episode found: {episode.title}")
-        
-        drama = await api.get_drama_detail(book_id)
         title = f"{drama.title} - {episode.title}" if drama else episode.title
         
         # Get available resolutions
@@ -397,8 +408,11 @@ async def download_with_resolution_callback(_, query: CallbackQuery):
     await query.answer(f"📥 Memulai download {resolution}p...")
     
     try:
-        episode = await api.get_episode(book_id, episode_num)
-        drama = await api.get_drama_detail(book_id)
+        # Use asyncio.gather for concurrent API calls
+        episode, drama = await asyncio.gather(
+            api.get_episode(book_id, episode_num),
+            api.get_drama_detail(book_id)
+        )
         
         if not episode or not episode.video_url:
             return await query.answer("❌ Episode tidak ditemukan", show_alert=True)
@@ -469,8 +483,11 @@ async def download_menu_callback(_, query: CallbackQuery):
     await query.answer("Loading...")
     
     try:
-        drama = await api.get_drama_detail(book_id)
-        episodes = await api.get_all_episodes(book_id)
+        # Use asyncio.gather for concurrent API calls
+        drama, episodes = await asyncio.gather(
+            api.get_drama_detail(book_id),
+            api.get_all_episodes(book_id)
+        )
         
         if not episodes:
             return await query.answer("❌ Episode tidak ditemukan", show_alert=True)
@@ -528,9 +545,12 @@ async def batch_start_handler(_, query: CallbackQuery):
     await query.answer("📦 Batch Download")
     
     try:
-        episodes = await api.get_all_episodes(book_id)
+        # Use asyncio.gather for concurrent API calls
+        episodes, drama = await asyncio.gather(
+            api.get_all_episodes(book_id),
+            api.get_drama_detail(book_id)
+        )
         total_eps = len(episodes)
-        drama = await api.get_drama_detail(book_id)
         
         caption = (
             f"📦 <b>Batch Download</b>\n\n"
@@ -709,6 +729,7 @@ async def batch_download_handler(_, query: CallbackQuery):
     await query.answer(f"📦 Memulai batch download {resolution}p...")
     
     try:
+        # Get drama detail concurrently if needed
         drama = await api.get_drama_detail(book_id)
         drama_title = drama.title if drama and drama.title else f"Drama_{book_id}"
         
